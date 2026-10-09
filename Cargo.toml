@@ -95,8 +95,8 @@ criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 
 # RPC / transport (main + mcp)
 tokio-util = { version = "0.7.17", features = ["codec"] }
-tarpc = { version = "0.37", features = ["serde-transport"] }
-tokio-serde = { version = "0.8.0", features = ["bincode"] }
+tarpc = { version = "0.37", features = ["serde-transport", "unix"] }
+tokio-serde = { version = "0.9", features = ["bincode"] }
 # bincode 1.x: production use is transitive via tokio-serde; direct dep is dev/test only (squirrel crate)
 bincode = "1.3"
 toml = "0.8"

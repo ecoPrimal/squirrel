@@ -357,6 +357,52 @@ async fn run_server(
         }
     });
 
+    // G64 Cephalization: tarpc binary RPC on sibling .tarpc.sock
+    #[cfg(all(unix, feature = "tarpc-rpc"))]
+    {
+        use futures::StreamExt;
+        use squirrel::rpc::SquirrelRpc;
+        use tarpc::server::{BaseChannel, Channel};
+
+        let tarpc_socket = format!(
+            "{}.tarpc.sock",
+            socket_path.strip_suffix(".sock").unwrap_or(&socket_path)
+        );
+        let _ = std::fs::remove_file(&tarpc_socket);
+        let tarpc_server = squirrel::rpc::TarpcRpcServer::from_jsonrpc(Arc::clone(&server));
+        match tarpc::serde_transport::unix::listen(
+            &tarpc_socket,
+            tokio_serde::formats::Bincode::default,
+        )
+        .await
+        {
+            Ok(mut listener) => {
+                info!(path = %tarpc_socket, "tarpc UDS listener bound");
+                tokio::spawn(async move {
+                    while let Some(accept_result) = listener.next().await {
+                        match accept_result {
+                            Ok(transport) => {
+                                let srv = tarpc_server.clone();
+                                tokio::spawn(
+                                    BaseChannel::with_defaults(transport)
+                                        .execute(srv.serve())
+                                        .for_each(|resp| async { tokio::spawn(resp); }),
+                                );
+                            }
+                            Err(e) => {
+                                warn!(error = %e, "tarpc accept failed");
+                            }
+                        }
+                    }
+                });
+                info!(path = %tarpc_socket, "tarpc listener spawned");
+            }
+            Err(e) => {
+                warn!(error = %e, path = %tarpc_socket, "tarpc listener failed (non-fatal)");
+            }
+        }
+    }
+
     // Install signal handlers (SIGTERM + SIGINT) for socket cleanup
     let (shutdown_tx, signal_task) =
         squirrel::capabilities::lifecycle::install_signal_handlers(socket_path.clone());

@@ -165,6 +165,8 @@ impl JsonRpcServer {
         });
 
         let (reader, mut writer) = tokio::io::split(stream);
+        // riboCipher signal prefix — required by ecosystem JSON-RPC servers
+        writer.write_all(&[0xEC, 0x01]).await.map_err(|_| ())?;
         let mut line = serde_json::to_string(&request).map_err(|_| ())?;
         line.push('\n');
         writer.write_all(line.as_bytes()).await.map_err(|_| ())?;
@@ -224,6 +226,15 @@ impl JsonRpcServer {
         });
 
         let (reader, mut writer) = tokio::io::split(stream);
+        // riboCipher signal prefix — required by ecosystem JSON-RPC servers
+        writer
+            .write_all(&[0xEC, 0x01])
+            .await
+            .map_err(|e| JsonRpcError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("riboCipher write error: {e}"),
+                data: None,
+            })?;
         let mut line = serde_json::to_string(&request).map_err(|e| JsonRpcError {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Serialization error: {e}"),
@@ -442,7 +453,7 @@ mod tests {
 
         /// Mock provenance primal: listens on UDS, responds to JSON-RPC.
         fn spawn_mock_provenance(socket_path: &std::path::Path) -> tokio::task::JoinHandle<()> {
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
             use tokio::net::UnixListener;
 
             let _ = std::fs::remove_file(socket_path);
@@ -452,6 +463,11 @@ mod tests {
                     tokio::spawn(async move {
                         let (reader, mut writer) = stream.into_split();
                         let mut buf_reader = BufReader::new(reader);
+                        // consume riboCipher signal prefix [0xEC, 0x01]
+                        let mut prefix = [0u8; 2];
+                        if buf_reader.read_exact(&mut prefix).await.is_err() {
+                            return;
+                        }
                         let mut line = String::new();
                         if buf_reader.read_line(&mut line).await.unwrap_or(0) == 0 {
                             return;
@@ -525,7 +541,7 @@ mod tests {
 
         #[tokio::test]
         async fn forward_jsonrpc_remote_error_propagated() {
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
             use tokio::net::UnixListener;
 
             let tmp = tempfile::TempDir::new().expect("tempdir");
@@ -536,6 +552,8 @@ mod tests {
                 if let Ok((stream, _)) = listener.accept().await {
                     let (reader, mut writer) = stream.into_split();
                     let mut buf_reader = BufReader::new(reader);
+                    let mut prefix = [0u8; 2];
+                    let _ = buf_reader.read_exact(&mut prefix).await;
                     let mut line = String::new();
                     let _ = buf_reader.read_line(&mut line).await;
                     let req: serde_json::Value =
@@ -569,7 +587,7 @@ mod tests {
 
         #[tokio::test]
         async fn forward_jsonrpc_invalid_json_response() {
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
             use tokio::net::UnixListener;
 
             let tmp = tempfile::TempDir::new().expect("tempdir");
@@ -580,6 +598,8 @@ mod tests {
                 if let Ok((stream, _)) = listener.accept().await {
                     let (reader, mut writer) = stream.into_split();
                     let mut buf_reader = BufReader::new(reader);
+                    let mut prefix = [0u8; 2];
+                    let _ = buf_reader.read_exact(&mut prefix).await;
                     let mut line = String::new();
                     let _ = buf_reader.read_line(&mut line).await;
                     let _ = writer.write_all(b"not json\n").await;
@@ -599,7 +619,7 @@ mod tests {
 
         #[tokio::test]
         async fn forward_jsonrpc_missing_result_field() {
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
             use tokio::net::UnixListener;
 
             let tmp = tempfile::TempDir::new().expect("tempdir");
@@ -610,6 +630,8 @@ mod tests {
                 if let Ok((stream, _)) = listener.accept().await {
                     let (reader, mut writer) = stream.into_split();
                     let mut buf_reader = BufReader::new(reader);
+                    let mut prefix = [0u8; 2];
+                    let _ = buf_reader.read_exact(&mut prefix).await;
                     let mut line = String::new();
                     let _ = buf_reader.read_line(&mut line).await;
                     let resp = serde_json::json!({"jsonrpc": "2.0", "id": 1});

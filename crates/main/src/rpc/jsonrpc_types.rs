@@ -100,12 +100,24 @@ pub struct JsonRpcError {
 
 /// Strip known legacy prefixes for ecosystem compatibility
 /// (per BearDog v0.9.0, barraCuda v0.3.7 pattern).
+///
+/// Tracks how many calls arrive with legacy prefixes for migration metrics.
 pub(crate) fn normalize_method(method: &str) -> &str {
-    method
+    match method
         .strip_prefix("squirrel.")
         .or_else(|| method.strip_prefix("mcp."))
-        .unwrap_or(method)
+    {
+        Some(stripped) => {
+            LEGACY_PREFIX_HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            stripped
+        }
+        None => method,
+    }
 }
+
+/// Count of JSON-RPC calls that arrived with a legacy `squirrel.`/`mcp.` prefix.
+pub(crate) static LEGACY_PREFIX_HITS: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
 
 // ── Error codes ──────────────────────────────────────────────────────────────
 

@@ -61,6 +61,7 @@ pub const CAPABILITY_GROUP_DESCRIPTIONS: &[(&str, &str)] = &[
     ("btsp", "Transport security negotiation"),
     ("lifecycle", "biomeOS lifecycle management"),
     ("graph", "Deployment graph parsing and validation"),
+    ("membrane", "Membrane observation from announced peers"),
     ("provenance", "Provenance DAG proxy"),
     ("dag", "DAG provenance operations"),
     ("anchoring", "Merkle anchoring operations"),
@@ -127,6 +128,8 @@ pub const CAPABILITIES: &[&str] = &[
     // Graph introspection (primalSpring BYOB)
     "graph.parse",
     "graph.validate",
+    // Membrane observation — read-only view of announced peer observations
+    "membrane.status",
 ];
 
 /// Semantic mappings: short operation name → fully qualified capability.
@@ -309,6 +312,7 @@ pub const COST_ESTIMATES: &[(&str, u32, bool)] = &[
     ("lifecycle.status", 1, false),
     ("graph.parse", 5, false),
     ("graph.validate", 50, false),
+    ("membrane.status", 1, false),
 ];
 
 /// Operation dependency hints for biomeOS Pathway Learner parallelization.
@@ -357,6 +361,7 @@ pub fn operation_dependencies() -> serde_json::Value {
         "lifecycle.status": [],
         "graph.parse": ["graph_toml"],
         "graph.validate": ["graph_toml"],
+        "membrane.status": [],
     })
 }
 

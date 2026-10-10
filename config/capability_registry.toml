@@ -521,3 +521,14 @@ required = ["graph_toml"]
 [capabilities.graph_validate.input_schema.properties.graph_toml]
 type = "string"
 description = "TOML-encoded deployment graph to validate"
+
+# --- Membrane domain (peer observation) ---
+# stability: evolving — chipMonk's first sense
+
+[capabilities.membrane_status]
+method = "membrane.status"
+domain = "membrane.observation"
+stability = "evolving"
+description = "Return latest membrane observations from announced peers (read-only)"
+[capabilities.membrane_status.input_schema]
+type = "object"

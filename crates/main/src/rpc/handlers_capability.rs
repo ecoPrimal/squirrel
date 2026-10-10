@@ -50,6 +50,7 @@ impl JsonRpcServer {
                 capabilities,
                 tools,
                 announced_at: chrono::Utc::now(),
+                metadata: request.metadata.clone(),
             };
 
             let mut registry = self.announced_tools.write().await;

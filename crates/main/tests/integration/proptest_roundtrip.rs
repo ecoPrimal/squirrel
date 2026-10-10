@@ -133,6 +133,7 @@ prop_compose! {
             tools,
             sub_federations,
             genetic_families,
+            metadata: None,
         }
     }
 }

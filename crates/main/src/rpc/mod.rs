@@ -42,6 +42,7 @@ mod handlers_context;
 mod handlers_graph;
 mod handlers_identity;
 mod handlers_inference;
+mod handlers_membrane;
 mod handlers_provenance;
 mod handlers_provider;
 mod handlers_system;

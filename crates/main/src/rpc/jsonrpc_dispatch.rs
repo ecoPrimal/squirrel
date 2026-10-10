@@ -89,6 +89,9 @@ impl JsonRpcServer {
             "graph.parse" => self.handle_graph_parse(params.as_ref()),
             "graph.validate" => self.handle_graph_validate(params.as_ref()),
 
+            // Membrane domain — observation from announced peers
+            "membrane.status" => self.handle_membrane_status().await,
+
             // Provenance proxy — routes to discovered DAG/anchoring/attribution primals
             m if m.starts_with("provenance.")
                 || m.starts_with("dag.")

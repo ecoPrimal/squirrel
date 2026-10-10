@@ -187,6 +187,11 @@ pub struct AnnounceCapabilitiesRequest {
 
     /// Genetic families (optional)
     pub genetic_families: Option<Vec<String>>,
+
+    /// Opaque metadata from the announcing primal (e.g. Anderson observations).
+    /// Stored alongside routing info so consumers can query what peers report.
+    #[serde(default)]
+    pub metadata: Option<serde_json::Value>,
 }
 
 /// Response from capability announcement
@@ -219,6 +224,8 @@ pub struct AnnouncedPrimal {
     pub tools: Vec<Arc<str>>,
     /// When the announcement was received
     pub announced_at: chrono::DateTime<chrono::Utc>,
+    /// Opaque metadata from the announcing primal (e.g. Anderson observations)
+    pub metadata: Option<serde_json::Value>,
 }
 
 /// Response from tool.list
@@ -445,6 +452,7 @@ mod tests {
             tools: Some(vec!["science.simulate".to_string()]),
             sub_federations: Some(vec!["federation-1".to_string()]),
             genetic_families: None,
+            metadata: None,
         };
 
         let json = serde_json::to_string(&request)?;

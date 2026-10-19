@@ -201,6 +201,7 @@ fn handle_tool(name: &str, args: &Value) -> String {
         }
         "neutron_read" => {
             let ch = args.get("channel").and_then(|v| v.as_str()).unwrap_or("all");
+            let last_n = args.get("last_n").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
             let page = match ch {
                 "inbox" => "neutron-inbox",
                 "notes" => "neutron-notes",
@@ -211,13 +212,36 @@ fn handle_tool(name: &str, args: &Value) -> String {
                     for (k, p) in [("inbox", "neutron-inbox"), ("notes", "neutron-notes"),
                                     ("reminders", "neutron-reminders"), ("chat", "neutron-chat")] {
                         let d = fetch(&format!("{NEUTRON}/api/discuss?page={p}"));
-                        summary[k] = json!({"total": d["total"]});
+                        let total = d["total"].as_u64().unwrap_or(0);
+                        let comments = d["comments"].as_array();
+                        let latest = comments
+                            .and_then(|c| c.last())
+                            .map(|m| json!({
+                                "total": total,
+                                "latest": m["body"].as_str().unwrap_or("").chars().take(100).collect::<String>(),
+                                "latest_time": m["ts"],
+                            }))
+                            .unwrap_or(json!({"total": total}));
+                        summary[k] = latest;
                     }
                     return serde_json::to_string_pretty(&summary).unwrap();
                 }
                 _ => return serde_json::to_string(&json!({"error": "Unknown channel"})).unwrap(),
             };
-            serde_json::to_string_pretty(&fetch(&format!("{NEUTRON}/api/discuss?page={page}"))).unwrap()
+            let d = fetch(&format!("{NEUTRON}/api/discuss?page={page}"));
+            let total = d["total"].as_u64().unwrap_or(0);
+            let comments = d["comments"].as_array().cloned().unwrap_or_default();
+            let msgs: Vec<Value> = comments.iter().rev().take(last_n).map(|c| json!({
+                "time": c["ts"],
+                "author": c.get("badge").unwrap_or(&json!("anon")),
+                "body": c["body"],
+                "badge": c.get("badge").unwrap_or(&json!("")),
+            })).collect();
+            serde_json::to_string_pretty(&json!({
+                "channel": ch,
+                "total": total,
+                "messages": msgs,
+            })).unwrap()
         }
         "neutron_write" => {
             let body = args.get("body").and_then(|v| v.as_str()).unwrap_or("");

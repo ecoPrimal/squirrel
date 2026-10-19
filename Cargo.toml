@@ -25,6 +25,8 @@ members = [
     "crates/universal-constants",
     "crates/universal-error",
 
+    # Membrane lens (portable MCP server)
+    "membrane-lens-rs",
 ]
 
 [workspace.package]

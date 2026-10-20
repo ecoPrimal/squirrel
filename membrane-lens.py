@@ -38,18 +38,20 @@ NEUTRON = "https://neutron.primals.eco"
 FEEDS = {
     "negentropy": f"{SIGNAL}/negentropy.json",
     "dashboard": f"{MEMBRANE}/dashboard.json",
-    "human": f"{MEMBRANE}/human.json",
+    "human": f"{MEMBRANE}/campfire-culture.json",
     "chipmunk": f"{MEMBRANE}/chipmunk.json",
     "topology": f"{MEMBRANE}/topology.json",
     "braid": f"{MEMBRANE}/braid.json",
     "scan_sweep_sort": f"{MEMBRANE}/scan_sweep_sort.json",
     "totality": f"{MEMBRANE}/totality.json",
+    "passage_totality": f"{MEMBRANE}/passage-totality.json",
     "subgraphs": f"{MEMBRANE}/subgraphs.json",
     "seo": f"{MEMBRANE}/seo.json",
     "stories": f"{MEMBRANE}/stories.json",
     "page_stories": f"{MEMBRANE}/page-stories.json",
     "visitor_stories": f"{MEMBRANE}/visitor-stories.json",
     "campfire": f"{MEMBRANE}/campfire.json",
+    "campfire_culture": f"{MEMBRANE}/campfire-culture.json",
     "dialogue": f"{MEMBRANE}/dialogue.json",
     "dialogue_depth": f"{MEMBRANE}/dialogue-depth.json",
     "falsification": f"{MEMBRANE}/falsification.json",
@@ -468,9 +470,36 @@ NEUTRON_CHANNELS = {
 
 
 def handle_neutron_read(args):
+    """ELASTON: reads from pre-fetched cache that bounces with the pulse beat.
+    1 fetch instead of 4. Cache refreshed every ~2min by neutron-cache-sense.py."""
     channel = args.get("channel", "all")
     last_n = args.get("last_n", 10)
 
+    # Try the elaston cache first (single fetch, pre-built by pulse)
+    cache = fetch(f"{MEMBRANE}/neutron-cache.json")
+    if "error" not in cache and "channels" in cache:
+        channels = cache["channels"]
+        if channel == "all":
+            summary = {}
+            for ch in ["inbox", "notes", "reminders", "chat"]:
+                ch_data = channels.get(ch, {})
+                summary[ch] = {
+                    "total": ch_data.get("total", 0),
+                    "latest": ch_data.get("latest"),
+                    "latest_time": ch_data.get("latest_time"),
+                }
+            return json.dumps(summary, indent=2)
+        ch_data = channels.get(channel)
+        if not ch_data:
+            return json.dumps({"error": f"Unknown channel: {channel}. Use inbox/notes/reminders/chat/all."})
+        msgs = ch_data.get("messages", [])[:last_n]
+        return json.dumps({
+            "channel": channel,
+            "total": ch_data.get("total", 0),
+            "messages": msgs,
+        }, indent=2)
+
+    # Fallback: live API (original path, if cache unavailable)
     if channel == "all":
         summary = {}
         for ch, page in NEUTRON_CHANNELS.items():

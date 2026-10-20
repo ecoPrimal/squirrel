@@ -200,48 +200,57 @@ fn handle_tool(name: &str, args: &Value) -> String {
             serde_json::to_string_pretty(&result).unwrap()
         }
         "neutron_read" => {
+            // ELASTON: read from pre-fetched cache (bounces with the pulse beat)
+            // instead of making 4 live API calls that hit rate limits.
+            // Cache refreshed every ~2min by neutron-cache-sense.py in membrane-pulse.
             let ch = args.get("channel").and_then(|v| v.as_str()).unwrap_or("all");
             let last_n = args.get("last_n").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
-            let page = match ch {
-                "inbox" => "neutron-inbox",
-                "notes" => "neutron-notes",
-                "reminders" => "neutron-reminders",
-                "chat" => "neutron-chat",
+            let cache = fetch(&format!("{MEMBRANE}/neutron-cache.json"));
+            if cache.get("error").is_some() {
+                // Cache miss — fall back to live API (1 call for single channel)
+                let page = match ch {
+                    "inbox" => "neutron-inbox", "notes" => "neutron-notes",
+                    "reminders" => "neutron-reminders", "chat" => "neutron-chat",
+                    "all" => {
+                        return serde_json::to_string(&json!({"error": "neutron cache unavailable, try a specific channel"})).unwrap();
+                    }
+                    _ => return serde_json::to_string(&json!({"error": "Unknown channel"})).unwrap(),
+                };
+                let d = fetch(&format!("{NEUTRON}/api/discuss?page={page}"));
+                let comments = d["comments"].as_array().cloned().unwrap_or_default();
+                let msgs: Vec<Value> = comments.iter().rev().take(last_n).map(|c| json!({
+                    "time": c["ts"], "author": c.get("badge").unwrap_or(&json!("anon")),
+                    "body": c["body"], "badge": c.get("badge").unwrap_or(&json!("")),
+                })).collect();
+                return serde_json::to_string_pretty(&json!({
+                    "channel": ch, "total": d["total"], "messages": msgs,
+                })).unwrap();
+            }
+            let channels = &cache["channels"];
+            match ch {
                 "all" => {
                     let mut summary = json!({});
-                    for (k, p) in [("inbox", "neutron-inbox"), ("notes", "neutron-notes"),
-                                    ("reminders", "neutron-reminders"), ("chat", "neutron-chat")] {
-                        let d = fetch(&format!("{NEUTRON}/api/discuss?page={p}"));
-                        let total = d["total"].as_u64().unwrap_or(0);
-                        let comments = d["comments"].as_array();
-                        let latest = comments
-                            .and_then(|c| c.last())
-                            .map(|m| json!({
-                                "total": total,
-                                "latest": m["body"].as_str().unwrap_or("").chars().take(100).collect::<String>(),
-                                "latest_time": m["ts"],
-                            }))
-                            .unwrap_or(json!({"total": total}));
-                        summary[k] = latest;
+                    for k in ["inbox", "notes", "reminders", "chat"] {
+                        let ch_data = &channels[k];
+                        summary[k] = json!({
+                            "total": ch_data["total"],
+                            "latest": ch_data["latest"],
+                            "latest_time": ch_data["latest_time"],
+                        });
                     }
-                    return serde_json::to_string_pretty(&summary).unwrap();
+                    serde_json::to_string_pretty(&summary).unwrap()
                 }
-                _ => return serde_json::to_string(&json!({"error": "Unknown channel"})).unwrap(),
-            };
-            let d = fetch(&format!("{NEUTRON}/api/discuss?page={page}"));
-            let total = d["total"].as_u64().unwrap_or(0);
-            let comments = d["comments"].as_array().cloned().unwrap_or_default();
-            let msgs: Vec<Value> = comments.iter().rev().take(last_n).map(|c| json!({
-                "time": c["ts"],
-                "author": c.get("badge").unwrap_or(&json!("anon")),
-                "body": c["body"],
-                "badge": c.get("badge").unwrap_or(&json!("")),
-            })).collect();
-            serde_json::to_string_pretty(&json!({
-                "channel": ch,
-                "total": total,
-                "messages": msgs,
-            })).unwrap()
+                _ => {
+                    let ch_data = &channels[ch];
+                    let msgs = ch_data["messages"].as_array().cloned().unwrap_or_default();
+                    let limited: Vec<Value> = msgs.into_iter().take(last_n).collect();
+                    serde_json::to_string_pretty(&json!({
+                        "channel": ch,
+                        "total": ch_data["total"],
+                        "messages": limited,
+                    })).unwrap()
+                }
+            }
         }
         "neutron_write" => {
             let body = args.get("body").and_then(|v| v.as_str()).unwrap_or("");

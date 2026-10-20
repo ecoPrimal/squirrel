@@ -1,0 +1,24 @@
+[package]
+name = "scan-sweep-sort"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Unified classification pipeline — scan → sweep → sort → fossilize → evolve"
+
+[[bin]]
+name = "scan-sweep-sort"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+ureq = "3"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

@@ -27,6 +27,9 @@ members = [
 
     # Membrane lens (portable MCP server)
     "membrane-lens-rs",
+
+    # Pipeline binary (replaces scan_sweep_sort.py)
+    "crates/scan-sweep-sort",
 ]
 
 [workspace.package]

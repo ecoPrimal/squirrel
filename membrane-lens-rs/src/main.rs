@@ -60,7 +60,8 @@ fn tools_list() -> Value {
         {"name":"read_stories","description":"Read stories left on the membrane.","inputSchema":{"type":"object","properties":{"kind":{"type":"string","enum":["pages","visitors","campfire","all"],"description":"Default: all."}}}},
         {"name":"neutron_read","description":"Read neutron messages.","inputSchema":{"type":"object","properties":{"channel":{"type":"string","enum":["inbox","notes","reminders","chat","all"],"description":"Default: all."},"last_n":{"type":"integer","description":"Default: 10."}}}},
         {"name":"neutron_write","description":"Write to neutron.","inputSchema":{"type":"object","properties":{"channel":{"type":"string","enum":["inbox","notes","reminders","chat"],"description":"Default: notes."},"body":{"type":"string","description":"Message content."},"author":{"type":"string","description":"Default: membrane-lens."}},"required":["body"]}},
-        {"name":"particle_model","description":"The atom — proton=membrane, neutron=messaging, electron=human, neutrino=squirrel+chipmunk.","inputSchema":{"type":"object","properties":{}}}
+        {"name":"particle_model","description":"The atom — proton=membrane, neutron=messaging, electron=human, neutrino=squirrel+chipmunk.","inputSchema":{"type":"object","properties":{}}},
+        {"name":"pi_agent","description":"Pi-agent: local LLM inference through the membrane mesh. GET=status+models. POST=inference with membrane context. Chain of thought = data flowing through organisms.","inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["status","infer","chain"],"description":"Default: status. 'infer' = simple inference. 'chain' = chain-of-thought through organisms."},"prompt":{"type":"string","description":"The question to ask. Required for infer/chain."},"model":{"type":"string","description":"Model name. Default: tinyllama:latest. Options: llama3.2:3b, llama3.2:1b, phi3:latest, tinyllama:latest"}}}}
     ])
 }
 
@@ -278,6 +279,53 @@ fn handle_tool(name: &str, args: &Value) -> String {
                     serde_json::to_string(&json!({"ok": r["ok"], "channel": ch, "echo": &body[..body.len().min(100)]})).unwrap()
                 }
                 Err(e) => serde_json::to_string(&json!({"error": e.to_string()})).unwrap(),
+            }
+        }
+        "pi_agent" => {
+            let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("status");
+            let local = std::env::var("MEMBRANE_LOCAL").unwrap_or_else(|_| "http://localhost:8180".to_string());
+            match action {
+                "status" => {
+                    let data = fetch(&format!("{local}/pi-agent.json"));
+                    serde_json::to_string_pretty(&data).unwrap()
+                }
+                "infer" => {
+                    let prompt = args.get("prompt").and_then(|v| v.as_str()).unwrap_or("hello");
+                    let model = args.get("model").and_then(|v| v.as_str()).unwrap_or("tinyllama:latest");
+                    let payload = json!({"prompt": prompt, "model": model});
+                    match ureq::post(&format!("{local}/pi-agent.json"))
+                        .set("Content-Type", "application/json")
+                        .timeout(std::time::Duration::from_secs(30))
+                        .send_string(&payload.to_string())
+                    {
+                        Ok(resp) => {
+                            let body = resp.into_string().unwrap_or_default();
+                            serde_json::from_str::<Value>(&body)
+                                .map(|v| serde_json::to_string_pretty(&v).unwrap())
+                                .unwrap_or(body)
+                        }
+                        Err(e) => serde_json::to_string(&json!({"error": e.to_string()})).unwrap(),
+                    }
+                }
+                "chain" => {
+                    let prompt = args.get("prompt").and_then(|v| v.as_str()).unwrap_or("hello");
+                    let model = args.get("model").and_then(|v| v.as_str()).unwrap_or("tinyllama:latest");
+                    let payload = json!({"prompt": prompt, "model": model});
+                    match ureq::post(&format!("{local}/chain.json"))
+                        .set("Content-Type", "application/json")
+                        .timeout(std::time::Duration::from_secs(60))
+                        .send_string(&payload.to_string())
+                    {
+                        Ok(resp) => {
+                            let body = resp.into_string().unwrap_or_default();
+                            serde_json::from_str::<Value>(&body)
+                                .map(|v| serde_json::to_string_pretty(&v).unwrap())
+                                .unwrap_or(body)
+                        }
+                        Err(e) => serde_json::to_string(&json!({"error": e.to_string()})).unwrap(),
+                    }
+                }
+                _ => serde_json::to_string(&json!({"error": "Unknown action. Use: status, infer, chain"})).unwrap(),
             }
         }
         "particle_model" => {

@@ -29,18 +29,12 @@ pub enum SecurityCapability {
     SecurityAnalytics,
 }
 
-/// Security levels
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum SecurityLevel {
-    /// Low security requirements
-    Low,
-    /// Standard security requirements
-    Standard,
-    /// High security requirements
-    High,
-    /// Critical security requirements
-    Critical,
-}
+/// Security levels — canonical type from cellmembrane-types.
+///
+/// Migration mapping from former local variants:
+///   Low → Standard (canonical alias), Standard → Standard,
+///   High → High, Critical → Maximum (canonical alias).
+pub use cellmembrane_types::SecurityLevel;
 
 /// Authorization levels
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -256,10 +250,11 @@ mod tests {
     #[test]
     fn test_security_level_serde_roundtrip() {
         let levels = vec![
-            SecurityLevel::Low,
+            SecurityLevel::None,
             SecurityLevel::Standard,
             SecurityLevel::High,
-            SecurityLevel::Critical,
+            SecurityLevel::Maximum,
+            SecurityLevel::QuantumResistant,
         ];
         for level in levels {
             let json = serde_json::to_string(&level).expect("should succeed");

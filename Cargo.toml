@@ -114,6 +114,9 @@ serde_bytes = "0.11"
 # zstd/flate2/lz4_flex: REMOVED — CompressionFormat is metadata-only (no codec wired).
 # Eliminates zstd-sys (C dep) from --all-features builds. Re-add when codecs are implemented.
 
+# Canonical ecosystem types from cellMembrane
+cellmembrane-types = { path = "../../gardens/cellMembrane/crates/cellmembrane-types", version = "0.1.0" }
+
 # Internal crate dependencies
 squirrel-ai-tools = { path = "crates/tools/ai-tools", version = "0.1.0" }
 squirrel-mcp-config = { path = "crates/config", version = "0.1.0" }

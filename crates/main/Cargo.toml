@@ -53,6 +53,9 @@ tokio-serde = { workspace = true, optional = true }
 # No compile-time primal dependencies needed (TRUE PRIMAL architecture).
 # Squirrel knows only itself; other primals are discovered dynamically via Unix sockets.
 
+# Canonical ecosystem types from cellMembrane
+cellmembrane-types.workspace = true
+
 # Configuration management
 squirrel-mcp-config.workspace = true
 

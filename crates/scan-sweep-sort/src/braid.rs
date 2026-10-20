@@ -68,7 +68,7 @@ pub fn braid_learn(chipmunk: &Value, human: &Value) -> Result<Value, SssError> {
         let vitality = is_total as f64 / (is_total + was_total).max(1) as f64;
         let strength = total as f64 * (1.0 + vitality * PI);
 
-        let (direction, dominant_dir, prov_from, prov_to) = if forward > 0 && reverse > 0 {
+        let (direction, dominant_dir, _prov_from, _prov_to) = if forward > 0 && reverse > 0 {
             let ratio = forward.max(reverse) as f64 / forward.min(reverse).max(1) as f64;
             if ratio > 3.0 {
                 if forward > reverse {

@@ -1,11 +1,12 @@
-//! scan-sweep-sort — unified classification pipeline + genome + worldclock.
+//! scan-sweep-sort — unified classification pipeline + genome + worldclock + twist.
 //!
-//! 6-stage pipeline:
+//! 7-stage pipeline:
 //!   SCAN:      Discover entities (detroit classification, fleet antibodies, braids, traffic)
 //!   SWEEP:     Compress, find structure, deduplicate
 //!   SORT:      Classify self/non-self/partial/null + fleet + braids
 //!   FOSSILIZE: Record what we learned from 8 perspectives
 //!   EVOLVE:    Feed learning back — recommendations
+//!   TWIST:     Green irreducibility line × brown loam line — the twiristina
 //!   GENOME:    Measure the size of the work (when stale — tempo-relative, not wall clock)
 //!
 //! WORLDCLOCK: time is local to the locals.
@@ -19,6 +20,7 @@ pub mod braid;
 pub mod config;
 pub mod fleet;
 pub mod pipeline;
+pub mod twist;
 pub mod util;
 pub mod worldclock;
 

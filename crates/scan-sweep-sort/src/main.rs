@@ -7,10 +7,11 @@ use scan_sweep_sort::braid::braid_learn;
 use scan_sweep_sort::config::{live_dir, CLASSIFICATION_URL, FEEDS, GRAPH_URL};
 use scan_sweep_sort::fleet::{backscatter_clean, fleet_sort};
 use scan_sweep_sort::pipeline::{evolve, fossilize, scan, sort_phase, sweep};
+use scan_sweep_sort::twist::twist;
 use scan_sweep_sort::util::{fetch, journal_append, write_json};
 use scan_sweep_sort::worldclock::{genome_is_stale, genome_totality, worldclock};
 
-use serde_json::json;
+use serde_json::{json, Value};
 use std::time::Instant;
 
 /// Perspective arrows for fossil output.
@@ -90,19 +91,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sort_data = sort_phase(&scan_data, &sweep_data);
     let fossil_data = fossilize(&scan_data, &sweep_data, &sort_data);
     let evolve_data = evolve(&scan_data, &sweep_data, &sort_data, &fossil_data);
+    let twist_data = twist(&scan_data, &sort_data);
 
     let result = json!({
         "timestamp": now.to_rfc3339(),
-        "pipeline": "scan → sweep → sort → fossilize → evolve",
+        "pipeline": "scan → sweep → sort → fossilize → evolve → twist",
         "worldclock": tempo,
         "scan": scan_data,
         "sweep": sweep_data,
         "sort": sort_data,
         "fossilize": fossil_data,
         "evolve": evolve_data,
+        "twist": twist_data,
     });
 
     write_json(&live_dir().join("scan_sweep_sort.json"), &result)?;
+    write_json(&live_dir().join("twist.json"), &twist_data)?;
 
     // Proton pulse decay
     proton_pulse_decay();
@@ -127,7 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Print summary ──
     let elapsed = t0.elapsed().as_secs_f64();
     println!(
-        "scan → sweep → sort → fossilize → evolve ({elapsed:.1}s) tempo={tempo_label}"
+        "scan → sweep → sort → fossilize → evolve → twist ({elapsed:.1}s) tempo={tempo_label}"
     );
     if genome_refreshed {
         println!("  GENOME:    refreshed (was stale)");
@@ -197,6 +201,48 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(0);
     println!("  FOSSILIZE: {fossil_count} observations");
     println!("  EVOLVE:    {evolve_count} recommendations");
+
+    // Twist summary
+    if let Some(tri) = twist_data.get("triangle") {
+        let p = tri.get("pink").and_then(Value::as_f64).unwrap_or(0.0);
+        let g = tri.get("green").and_then(Value::as_f64).unwrap_or(0.0);
+        let b = tri.get("blue").and_then(Value::as_f64).unwrap_or(0.0);
+        let coh = tri.get("coherence").and_then(Value::as_f64).unwrap_or(0.0);
+        println!(
+            "  TWIST:     pink={p:.3} green={g:.3} blue={b:.3} coherence={coh:.3}"
+        );
+    }
+    let gl = twist_data
+        .get("green_line")
+        .and_then(|g| g.get("value"))
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let bl = twist_data
+        .get("brown_line")
+        .and_then(|b| b.get("value"))
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let tr = twist_data
+        .get("twist")
+        .and_then(|t| t.get("rate"))
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let auto_count = twist_data
+        .get("auto_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    println!(
+        "           green_line={gl:.3} brown_line={bl:.3} twist_rate={tr:.3} auto={auto_count}"
+    );
+
+    if let Some(actions) = twist_data.get("auto_actions").and_then(Value::as_array) {
+        for a in actions {
+            let act = a.get("action").and_then(Value::as_str).unwrap_or("?");
+            let reason = a.get("reason").and_then(Value::as_str).unwrap_or("");
+            let prio = a.get("priority").and_then(Value::as_str).unwrap_or("?");
+            println!("  ⊗ [{prio:>6}] {act}: {reason}");
+        }
+    }
 
     if let Some(observations) = fossil_data.get("observations").and_then(|v| v.as_array()) {
         for o in observations {

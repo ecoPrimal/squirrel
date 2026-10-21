@@ -55,6 +55,7 @@ FEEDS = {
     'pressure':   MEMBRANE_DIR / 'pressure.json',
     'jams':       MEMBRANE_DIR / 'jams.json',
     'triage':     MEMBRANE_DIR / 'triage-state.json',
+    'io':         MEMBRANE_DIR / 'io-state.json',
 }
 
 KITE_STATE = MEMBRANE_DIR / 'kite-state.json'
@@ -186,6 +187,15 @@ def taste_triage(data):
         return {k: round(fl.get(k, 0), 4) for k in ['sweet', 'sour', 'spicy', 'bitter', 'umami']}
     return {'sweet': 0, 'sour': 0, 'spicy': 0, 'bitter': 0, 'umami': 0}
 
+def taste_io(data):
+    """Taste the I/O state — the organism's vital signs."""
+    if not data:
+        return {'sweet': 0, 'sour': 0, 'spicy': 0, 'bitter': 0, 'umami': 0}
+    fl = data.get('flavor', {})
+    if fl:
+        return {k: round(fl.get(k, 0), 4) for k in ['sweet', 'sour', 'spicy', 'bitter', 'umami']}
+    return {'sweet': 0, 'sour': 0, 'spicy': 0, 'bitter': 0, 'umami': 0}
+
 def taste_all(senses):
     """Taste all feeds. Return composite flavor profile."""
     tastes = {
@@ -195,6 +205,7 @@ def taste_all(senses):
         'jams': taste_jams(senses.get('jams')),
         'trig': taste_trig(senses.get('trig')),
         'triage': taste_triage(senses.get('triage')),
+        'io': taste_io(senses.get('io')),
     }
 
     # Composite: average all tastes

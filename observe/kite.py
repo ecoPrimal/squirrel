@@ -54,6 +54,7 @@ FEEDS = {
     'homunculus': MEMBRANE_DIR / 'homunculus-map.json',
     'pressure':   MEMBRANE_DIR / 'pressure.json',
     'jams':       MEMBRANE_DIR / 'jams.json',
+    'triage':     MEMBRANE_DIR / 'triage-state.json',
 }
 
 KITE_STATE = MEMBRANE_DIR / 'kite-state.json'
@@ -176,6 +177,15 @@ def _norm(sweet, sour, spicy, bitter, umami):
         'umami': round(umami / total, 4),
     }
 
+def taste_triage(data):
+    """Taste the triage state — the organism digesting itself."""
+    if not data:
+        return {'sweet': 0, 'sour': 0, 'spicy': 0, 'bitter': 0, 'umami': 0}
+    fl = data.get('flavor', {})
+    if fl:
+        return {k: round(fl.get(k, 0), 4) for k in ['sweet', 'sour', 'spicy', 'bitter', 'umami']}
+    return {'sweet': 0, 'sour': 0, 'spicy': 0, 'bitter': 0, 'umami': 0}
+
 def taste_all(senses):
     """Taste all feeds. Return composite flavor profile."""
     tastes = {
@@ -184,6 +194,7 @@ def taste_all(senses):
         'pressure': taste_pressure(senses.get('pressure')),
         'jams': taste_jams(senses.get('jams')),
         'trig': taste_trig(senses.get('trig')),
+        'triage': taste_triage(senses.get('triage')),
     }
 
     # Composite: average all tastes

@@ -296,6 +296,19 @@ def fly_once(base_rate=DEFAULT_BLINK_RATE):
     # STEER (adjust rhythm)
     next_rate = steer(composite, delta, base_rate)
 
+    # TENSE (Paper 95 — zeros get verbs, not NULL)
+    evolve = senses.get('evolve') or {}
+    stages = evolve.get('stages', {})
+    trig = senses.get('trig') or {}
+    pressure = senses.get('pressure') or {}
+    tenses = {
+        'spider': 'COULD' if stages.get('spider', 0) == 0 else 'IS',
+        'fold': 'MIGHT' if (trig.get('fold_ratio', 0) == 0) else 'IS',
+        'pressure': 'MIGHTN\'T' if len(pressure.get('pressure_points', [])) == 0 else 'IS',
+        'bitter': 'SHAN\'T' if composite.get('bitter', 0) == 0 else 'IS',
+        'blink': '13',
+    }
+
     # BUILD STATE
     state = {
         'ts': ts,
@@ -304,6 +317,7 @@ def fly_once(base_rate=DEFAULT_BLINK_RATE):
         'flavor': composite,
         'flavors_per_feed': tastes,
         'delta': delta,
+        'tense': tenses,
         'blink_rate': next_rate,
         'senses': {
             'evolve': senses.get('evolve'),
@@ -360,6 +374,9 @@ def print_state(state):
     print(f"     bitter {c['bitter']:.3f}  {bars['bitter']}")
     print(f"     umami  {c['umami']:.3f}  {bars['umami']}")
     print(f"   π: fold={p['fold_ratio']}, cns/pns={p['cns_pns_ratio']}, split={p['split_ratio']}")
+    t = state.get('tense', {})
+    if t:
+        print(f"   tense: spider={t.get('spider')}  fold={t.get('fold')}  pressure={t.get('pressure')}  bitter={t.get('bitter')}  blink={t.get('blink')}")
     print(f"   next blink: {state['blink_rate']}s")
 
 

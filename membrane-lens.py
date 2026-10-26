@@ -461,7 +461,7 @@ def handle_journal(args):
 
 
 NEUTRON_API = f"{NEUTRON}/api/discuss"
-NTFY_DIRECT = "https://nestgate.io/neutron"
+NTFY_DIRECT = "https://ntfy.sh"
 NEUTRON_CHANNELS = {
     "inbox": "ecoPrimals-inbox",
     "notes": "ecoPrimals-notes",

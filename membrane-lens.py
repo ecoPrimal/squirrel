@@ -31,7 +31,7 @@ import sys
 import urllib.request
 from datetime import datetime, timezone
 
-MEMBRANE = "https://hud.primals.eco"
+MEMBRANE = "https://connect.primals.eco"
 SIGNAL = "https://signal.primals.eco"
 NEUTRON = "https://neutron.primals.eco"
 
@@ -461,11 +461,12 @@ def handle_journal(args):
 
 
 NEUTRON_API = f"{NEUTRON}/api/discuss"
+NTFY_DIRECT = "https://nestgate.io/neutron"
 NEUTRON_CHANNELS = {
-    "inbox": "neutron-inbox",
-    "notes": "neutron-notes",
-    "reminders": "neutron-reminders",
-    "chat": "neutron-chat",
+    "inbox": "ecoPrimals-inbox",
+    "notes": "ecoPrimals-notes",
+    "reminders": "ecoPrimals-reminders",
+    "chat": "ecoPrimals-chat",
 }
 
 
@@ -544,21 +545,23 @@ def handle_neutron_write(args):
     author = args.get("author", "membrane-lens")
     if not body.strip():
         return json.dumps({"error": "Empty message body."})
-    page = NEUTRON_CHANNELS.get(channel)
-    if not page:
+    topic = NEUTRON_CHANNELS.get(channel)
+    if not topic:
         return json.dumps({"error": f"Unknown channel: {channel}."})
     if channel == "reminders":
         body = "⏰ " + body
-    payload = json.dumps({"page": page, "author": author, "body": body}).encode()
+    msg = f"[{author}] {body}"
+    payload = msg.encode("utf-8")
     try:
         req = urllib.request.Request(
-            NEUTRON_API, data=payload,
-            headers={"Content-Type": "application/json", "User-Agent": "membrane-lens/1.0"},
+            f"{NTFY_DIRECT}/{topic}",
+            data=payload,
+            headers={"User-Agent": "membrane-lens/1.0", "Title": f"neutron/{channel}"},
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode())
-        return json.dumps({"ok": result.get("ok", False), "channel": channel, "echo": body[:100]})
+        return json.dumps({"ok": True, "id": result.get("id"), "channel": channel, "echo": body[:100]})
     except Exception as e:
         return json.dumps({"error": str(e)})
 

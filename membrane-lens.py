@@ -31,9 +31,18 @@ import sys
 import urllib.request
 from datetime import datetime, timezone
 
-MEMBRANE = "https://connect.primals.eco"
-SIGNAL = "https://signal.primals.eco"
-NEUTRON = "https://neutron.primals.eco"
+# LOCAL-FIRST: Read from eastGate's own data server
+# Falls back to primals.eco subdomains if local is unreachable
+import os
+_LOCAL = os.environ.get("MEMBRANE_LOCAL", "http://localhost:8080/data")
+_REMOTE_MEMBRANE = "https://connect.primals.eco"
+_REMOTE_SIGNAL = "https://signal.primals.eco"
+_REMOTE_NEUTRON = "https://neutron.primals.eco"
+
+# Use local by default — eastGate IS the membrane
+MEMBRANE = _LOCAL
+SIGNAL = _LOCAL
+NEUTRON = _LOCAL
 
 FEEDS = {
     "negentropy": f"{SIGNAL}/negentropy.json",
@@ -222,12 +231,22 @@ TOOLS = [
 # ═══ FETCH ═══
 
 def fetch(url):
+    """Fetch data — tries local first, falls back to remote if local fails."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "membrane-lens/1.0"})
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return json.loads(resp.read().decode())
-    except Exception as e:
-        return {"error": str(e)}
+    except Exception as local_err:
+        # If local failed, try remote fallback
+        if "localhost" in url or "127.0.0.1" in url:
+            remote_url = url.replace(_LOCAL, _REMOTE_MEMBRANE)
+            try:
+                req = urllib.request.Request(remote_url, headers={"User-Agent": "membrane-lens/1.0"})
+                with urllib.request.urlopen(req, timeout=12) as resp:
+                    return json.loads(resp.read().decode())
+            except Exception:
+                pass
+        return {"error": str(local_err), "hint": "tried local + remote"}
 
 
 # ═══ TOOL HANDLERS ═══

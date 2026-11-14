@@ -16,7 +16,8 @@ Install in any Cursor IDE:
            "alwaysAllow": ["observe_membrane","membrane_counts","read_journal",
              "chipmunk_status","human_epitopes","topology","scan_sweep_sort",
              "human_notes","braid_connections","raw_feed","read_stories",
-             "neutron_read","neutron_write"]
+             "neutron_read","neutron_write","pony_express","polaris_tap",
+             "mail_inbox","globe_walker","neural_api","particle_model"]
          }
        }
      }
@@ -35,14 +36,21 @@ from datetime import datetime, timezone
 # Falls back to primals.eco subdomains if local is unreachable
 import os
 _LOCAL = os.environ.get("MEMBRANE_LOCAL", "http://localhost:8080/data")
-_REMOTE_MEMBRANE = "https://connect.primals.eco"
-_REMOTE_SIGNAL = "https://signal.primals.eco"
-_REMOTE_NEUTRON = "https://neutron.primals.eco"
+# OLD CLOUD PATTERN (golgi VPS) — DEAD, absorbed into cellMembrane
+# _REMOTE_MEMBRANE = "https://connect.primals.eco"   # DEAD
+# _REMOTE_SIGNAL = "https://signal.primals.eco"       # DEAD
+# _REMOTE_NEUTRON = "https://neutron.primals.eco"     # DEAD
+# Everything is LOCAL now — cellMembrane IS the cloud
+_REMOTE_MEMBRANE = _LOCAL  # fallback = same as local
+_REMOTE_SIGNAL = _LOCAL
+_REMOTE_NEUTRON = _LOCAL
 
 # Use local by default — eastGate IS the membrane
 MEMBRANE = _LOCAL
 SIGNAL = _LOCAL
 NEUTRON = _LOCAL
+GATE = os.environ.get("GAIA_GATE", "http://localhost:8443")
+GATE_DATA = os.environ.get("GAIA_GATE_DATA", "/opt/Gaia/data/neutron")
 
 FEEDS = {
     "negentropy": f"{SIGNAL}/negentropy.json",
@@ -224,6 +232,60 @@ TOOLS = [
         "name": "particle_model",
         "description": "The atom — how the membrane maps to subatomic physics. proton=membrane (identity, charge, selectivity). neutron=messaging (stability, no bias, binds surfaces). electron=human viewer (orbits, bonds, quantized energy levels). neutrino=squirrel+chipmunk (null, passes through, observes). Forces: strong=Rust, electromagnetic=HTTPS, weak=anderson sort, gravity=tuebor.",
         "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "pony_express",
+        "description": "Pony Express — asynchronous message passing between gates. Read or send messages through the pony express relay (eastGate → heart-pull → northGate → git → Forgejo → eastGate). action=read returns recent messages, action=send dispatches a new message.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["read", "send"], "description": "read or send"},
+                "body": {"type": "string", "description": "Message body (for send)"},
+                "author": {"type": "string", "description": "Message author (for send)", "default": "squirrel"},
+            },
+        },
+    },
+    {
+        "name": "polaris_tap",
+        "description": "Tap northGate (Polaris) — the RTX 5090 forge. Returns pulse, model bank (63 models, 267GB), and gate status. Polaris communicates via git push, not SSH.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "what": {"type": "string", "enum": ["pulse", "models", "all"], "description": "What to tap", "default": "all"},
+            },
+        },
+    },
+    {
+        "name": "mail_inbox",
+        "description": "Read Gaia's mail inbox — messages received via neutrino SMTP (:25), pony express, and neutron channels. Returns all incoming messages across all channels.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "channel": {"type": "string", "enum": ["all", "inbox", "pony-express", "encounters"], "default": "all"},
+                "last_n": {"type": "integer", "description": "Number of recent messages", "default": 10},
+            },
+        },
+    },
+    {
+        "name": "globe_walker",
+        "description": "Globe Walker — Wikipedia atlas of pre-digital human knowledge. 142 topics in 8 categories (writing, numbers, classification, symbols, languages, calendars, info tech, measurement). 102 alive traditions, 40 extinct. action=status returns counts, action=topic looks up one topic, action=agglutinate returns IS/WAS summary.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["status", "topic", "agglutinate"], "default": "status"},
+                "query": {"type": "string", "description": "Topic name for lookup (when action=topic)"},
+            },
+        },
+    },
+    {
+        "name": "neural_api",
+        "description": "biomeOS Neural API surface — 470 IPC methods across 17 primals, 30 atomic signal tools (tower.*, node.*, nest.*, braid.*, meta.*). Returns the capability registry, signal tool schemas, and primal launch profiles. This IS the nervous system.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "what": {"type": "string", "enum": ["signals", "capabilities", "topology", "primals"], "default": "signals"},
+            },
+        },
     },
 ]
 
@@ -479,13 +541,14 @@ def handle_journal(args):
     }, indent=2)
 
 
-NEUTRON_API = f"{NEUTRON}/api/discuss"
+# Neutron channels — LOCAL JSONL files in cellMembrane (golgi is DEAD)
 NTFY_DIRECT = "https://ntfy.sh"
+NEUTRON_LOCAL_DIR = os.environ.get("GAIA_GATE_DATA", "/opt/Gaia/data/neutron")
 NEUTRON_CHANNELS = {
-    "inbox": "ecoPrimals-inbox",
-    "notes": "ecoPrimals-notes",
-    "reminders": "ecoPrimals-reminders",
-    "chat": "ecoPrimals-chat",
+    "inbox": "inbox.jsonl",
+    "notes": "notes.jsonl",
+    "reminders": "reminders.jsonl",
+    "chat": "chat.jsonl",
 }
 
 
@@ -519,76 +582,55 @@ def handle_neutron_read(args):
             "messages": msgs,
         }, indent=2)
 
-    # Fallback: live API (original path, if cache unavailable)
+    # LOCAL cellMembrane fallback — read from JSONL files (golgi is DEAD)
     if channel == "all":
         summary = {}
-        for ch, page in NEUTRON_CHANNELS.items():
-            data = fetch(f"{NEUTRON_API}?page={page}")
-            if "error" in data:
-                summary[ch] = {"error": data["error"]}
-            else:
-                comments = data.get("comments", [])
-                summary[ch] = {
-                    "total": data.get("total", 0),
-                    "latest": comments[-1].get("body", "")[:100] if comments else None,
-                    "latest_time": datetime.fromtimestamp(comments[-1]["epoch"], tz=timezone.utc).isoformat() if comments and "epoch" in comments[-1] else None,
-                }
+        for ch, fname in NEUTRON_CHANNELS.items():
+            msgs = _read_jsonl(os.path.join(NEUTRON_LOCAL_DIR, fname), last_n)
+            summary[ch] = {
+                "total": len(msgs),
+                "latest": msgs[0].get("body", "")[:100] if msgs else None,
+                "latest_time": msgs[0].get("ts") if msgs else None,
+            }
         return json.dumps(summary, indent=2)
 
-    page = NEUTRON_CHANNELS.get(channel)
-    if not page:
+    fname = NEUTRON_CHANNELS.get(channel)
+    if not fname:
         return json.dumps({"error": f"Unknown channel: {channel}. Use inbox/notes/reminders/chat/all."})
-    data = fetch(f"{NEUTRON_API}?page={page}")
-    if "error" in data:
-        return json.dumps(data)
-    comments = data.get("comments", [])
-    comments.sort(key=lambda c: c.get("epoch", 0), reverse=True)
+    msgs = _read_jsonl(os.path.join(NEUTRON_LOCAL_DIR, fname), last_n)
     return json.dumps({
         "channel": channel,
-        "total": data.get("total", 0),
-        "messages": [
-            {
-                "time": datetime.fromtimestamp(c.get("epoch", 0), tz=timezone.utc).isoformat(),
-                "author": c.get("author", "anon"),
-                "body": c.get("body", ""),
-                **({"badge": c["badge"]} if c.get("badge") else {}),
-            }
-            for c in comments[:last_n]
-        ],
+        "total": len(msgs),
+        "messages": msgs[:last_n],
     }, indent=2)
 
 
 def handle_neutron_write(args):
+    """Write to Gaia's LOCAL neutron channel — append to JSONL in cellMembrane."""
     channel = args.get("channel", "notes")
     body = args.get("body", "")
-    author = args.get("author", "membrane-lens")
+    author = args.get("author", "squirrel")
     if not body.strip():
         return json.dumps({"error": "Empty message body."})
-    topic = NEUTRON_CHANNELS.get(channel)
-    if not topic:
-        return json.dumps({"error": f"Unknown channel: {channel}."})
-    if channel == "reminders":
-        body = "⏰ " + body
-    msg = f"[{author}] {body}"
-    payload = msg.encode("utf-8")
+    fname = NEUTRON_CHANNELS.get(channel)
+    if not fname:
+        return json.dumps({"error": f"Unknown channel: {channel}. Use inbox/notes/reminders/chat."})
+    fpath = os.path.join(NEUTRON_LOCAL_DIR, fname)
+    os.makedirs(NEUTRON_LOCAL_DIR, exist_ok=True)
+    entry = {"ts": datetime.now(tz=timezone.utc).isoformat(), "author": author, "body": body, "channel": channel}
     try:
-        req = urllib.request.Request(
-            f"{NTFY_DIRECT}/{topic}",
-            data=payload,
-            headers={"User-Agent": "membrane-lens/1.0", "Title": f"neutron/{channel}"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode())
-        return json.dumps({"ok": True, "id": result.get("id"), "channel": channel, "echo": body[:100]})
+        with open(fpath, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+        return json.dumps({"ok": True, "channel": channel, "echo": body[:100], "stored": fpath})
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(e), "fallback": "local JSONL write failed"})
 
 
 def handle_particle_model(_args):
     now = fetch(FEEDS["now"])
-    neutron_notes = fetch(f"{NEUTRON}/api/discuss?page=neutron-notes")
-    neutron_inbox = fetch(f"{NEUTRON}/api/discuss?page=neutron-inbox")
+    # LOCAL cellMembrane — read from JSONL, not dead golgi API
+    neutron_notes = _read_jsonl(os.path.join(NEUTRON_LOCAL_DIR, "notes.jsonl"), 5)
+    neutron_inbox = _read_jsonl(os.path.join(NEUTRON_LOCAL_DIR, "inbox.jsonl"), 5)
 
     proton = {
         "particle": "proton (p⁺)",
@@ -661,6 +703,169 @@ def handle_particle_model(_args):
     }, indent=2)
 
 
+# ═══ NEW TOOLS — Pony Express, Polaris, Mail, Globe, Neural API ═══
+
+def handle_pony_express(args):
+    """Pony Express — read or send messages between gates. LOCAL cellMembrane, no cloud."""
+    action = args.get("action", "read")
+    if action == "send":
+        body = args.get("body", "")
+        author = args.get("author", "squirrel")
+        if not body.strip():
+            return json.dumps({"error": "Empty message body."})
+        fpath = os.path.join(GATE_DATA, "pony-express.jsonl")
+        os.makedirs(GATE_DATA, exist_ok=True)
+        entry = {"ts": datetime.now(tz=timezone.utc).isoformat(), "author": author, "body": body, "channel": "pony-express"}
+        try:
+            with open(fpath, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+            return json.dumps({"ok": True, "sent": body[:100], "stored": fpath})
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+    else:
+        pony = _read_jsonl(f"{GATE_DATA}/pony-express.jsonl", 10)
+        inbox = _read_jsonl(f"{GATE_DATA}/inbox.jsonl", 10)
+        return json.dumps({"pony_express": pony, "inbox": inbox, "total": len(pony) + len(inbox)}, indent=2)
+
+
+def handle_polaris_tap(args):
+    """Tap northGate (Polaris) — pulse, models, gate status."""
+    what = args.get("what", "all")
+    polaris = "http://192.168.4.147"
+    result = {"gate": "northGate", "ip": "192.168.4.147"}
+    if what in ("pulse", "all"):
+        result["pulse"] = fetch(f"{polaris}:8443/pulse")
+    if what in ("models", "all"):
+        try:
+            req = urllib.request.Request(f"{polaris}:11434/api/tags", headers={"User-Agent": "squirrel/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            models = data.get("models", [])
+            result["models"] = {
+                "count": len(models),
+                "total_gb": round(sum(m.get("size", 0) for m in models) / (1024**3), 1),
+                "names": [m["name"] for m in models[:20]],
+            }
+            if len(models) > 20:
+                result["models"]["more"] = len(models) - 20
+        except Exception as e:
+            result["models"] = {"error": str(e)}
+    return json.dumps(result, indent=2)
+
+
+def handle_mail_inbox(args):
+    """Read all incoming mail across all channels."""
+    channel = args.get("channel", "all")
+    last_n = args.get("last_n", 10)
+    result = {}
+    channels = {
+        "inbox": f"{GATE_DATA}/inbox.jsonl",
+        "pony-express": f"{GATE_DATA}/pony-express.jsonl",
+        "encounters": f"{GATE_DATA}/encounters.jsonl",
+    }
+    if channel == "all":
+        for ch, path in channels.items():
+            result[ch] = _read_jsonl(path, last_n)
+    elif channel in channels:
+        result[channel] = _read_jsonl(channels[channel], last_n)
+    else:
+        return json.dumps({"error": f"Unknown channel: {channel}"})
+    return json.dumps(result, indent=2)
+
+
+def handle_globe_walker(args):
+    """Globe Walker — Wikipedia atlas of pre-digital knowledge."""
+    action = args.get("action", "status")
+    if action == "topic":
+        query = args.get("query", "Cuneiform")
+        return json.dumps(fetch(f"{GATE}/api/globe?action=topic&q={urllib.request.quote(query)}"), indent=2)
+    elif action == "agglutinate":
+        return json.dumps(fetch(f"{GATE}/api/globe?action=agglutinate"), indent=2)
+    else:
+        return json.dumps(fetch(f"{GATE}/api/globe"), indent=2)
+
+
+def handle_neural_api(args):
+    """biomeOS Neural API — capability registry and signal tools."""
+    what = args.get("what", "signals")
+    import pathlib
+    biome_config = pathlib.Path.home() / "Development" / "ecoPrimals" / "primals" / "biomeOS" / "config"
+    if what == "signals":
+        try:
+            import tomllib
+        except ImportError:
+            try:
+                import tomli as tomllib
+            except ImportError:
+                return json.dumps({"error": "No TOML parser available"})
+        try:
+            with open(biome_config / "signal_tools.toml", "rb") as f:
+                data = tomllib.load(f)
+            tools = data.get("tools", [])
+            return json.dumps({"signal_tools": len(tools),
+                "tools": [{"name": t["name"], "tier": t.get("tier"), "description": t.get("description","")[:80],
+                           "primals": t.get("primals",[])} for t in tools]}, indent=2)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+    elif what == "capabilities":
+        try:
+            with open(biome_config / "capability_registry.toml") as f:
+                lines = f.readlines()
+            methods = [l.strip().split("=")[0].strip().strip('"') for l in lines if '= { provider' in l]
+            providers = {}
+            for m in methods:
+                parts = m.split(".")
+                if len(parts) >= 2:
+                    providers.setdefault(parts[0], []).append(m)
+            return json.dumps({"total_methods": len(methods),
+                "domains": {k: len(v) for k, v in sorted(providers.items())},
+                "sample": methods[:30]}, indent=2)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+    elif what == "primals":
+        try:
+            import tomllib
+        except ImportError:
+            try:
+                import tomli as tomllib
+            except ImportError:
+                return json.dumps({"error": "No TOML parser"})
+        try:
+            with open(biome_config / "primal_launch_profiles.toml", "rb") as f:
+                data = tomllib.load(f)
+            profiles = data.get("profiles", {})
+            return json.dumps({"primals": list(profiles.keys()), "count": len(profiles),
+                "default": data.get("default", {})}, indent=2)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+    else:
+        return json.dumps(fetch(f"{GATE}/api/globe"), indent=2)
+
+
+def _read_jsonl(url_or_path, last_n=10):
+    """Read a JSONL file — try as URL first, then as local file."""
+    lines = []
+    try:
+        req = urllib.request.Request(url_or_path, headers={"User-Agent": "squirrel/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            text = resp.read().decode()
+        for line in text.strip().split("\n"):
+            if line.strip():
+                try: lines.append(json.loads(line))
+                except: pass
+    except Exception:
+        import pathlib
+        for p in [pathlib.Path(url_or_path),
+                  pathlib.Path("/opt/Gaia/data/neutron") / pathlib.Path(url_or_path).name]:
+            if p.exists():
+                for line in p.read_text().strip().split("\n"):
+                    if line.strip():
+                        try: lines.append(json.loads(line))
+                        except: pass
+                break
+    return lines[-last_n:] if lines else []
+
+
 # ═══ DISPATCH ═══
 
 HANDLERS = {
@@ -678,6 +883,11 @@ HANDLERS = {
     "neutron_read": handle_neutron_read,
     "neutron_write": handle_neutron_write,
     "particle_model": handle_particle_model,
+    "pony_express": handle_pony_express,
+    "polaris_tap": handle_polaris_tap,
+    "mail_inbox": handle_mail_inbox,
+    "globe_walker": handle_globe_walker,
+    "neural_api": handle_neural_api,
 }
 
 

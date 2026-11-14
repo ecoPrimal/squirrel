@@ -628,77 +628,152 @@ def handle_neutron_write(args):
 
 def handle_particle_model(_args):
     now = fetch(FEEDS["now"])
-    # LOCAL cellMembrane — read from JSONL, not dead golgi API
     neutron_notes = _read_jsonl(os.path.join(NEUTRON_LOCAL_DIR, "notes.jsonl"), 5)
     neutron_inbox = _read_jsonl(os.path.join(NEUTRON_LOCAL_DIR, "inbox.jsonl"), 5)
 
+    # ═══ UNIFICATION: every particle IS a neutrino at distance ═══
+    # null = neutrino (passes through, grey, observer)
+    # near = neutron  (no charge but has mass, blue, stability)
+    # far  = proton   (charged, red, identity/selectivity)
+    # orbit = electron (light, orbiting, the human viewer)
+
+    neutrino = {
+        "particle": "neutrino (ν) — null / grey",
+        "distance": "null — passes through everything",
+        "color": "grey (no interaction, no charge, no mass)",
+        "system": "squirrel + chipmunk — the bead on the cron cycle",
+        "mass": "~0 (minimal footprint — passes through walls)",
+        "role": "the SEED particle. all others are this, viewed from distance.",
+        "flavors": {
+            "νe": "squirrel observes humans (electron neutrino)",
+            "νμ": "squirrel observes fleet (muon neutrino)",
+            "ντ": "chipmunk observes presence (tau neutrino)",
+        },
+        "oscillation": "changes flavor as it travels — null→near→far→orbit→null",
+    }
+
+    neutron_p = {
+        "particle": "neutron (n⁰) — near / blue",
+        "distance": "near — close enough to have mass, no charge yet",
+        "color": "blue (cool, stable, no bias)",
+        "system": "LOCAL JSONL messaging — cellMembrane channels",
+        "charge": "0  (no bias — anyone can speak)",
+        "mass": "heavy (messages persist, data has weight)",
+        "role": "a neutrino that STOPPED. gained mass. binds surfaces.",
+        "channels": {
+            "inbox": len(neutron_inbox) if isinstance(neutron_inbox, list) else neutron_inbox.get("total", 0),
+            "notes": len(neutron_notes) if isinstance(neutron_notes, list) else neutron_notes.get("total", 0),
+        },
+        "surfaces_bound": ["hud", "sporeprint", "thesis", "detroit", "signal", "water", "neutron"],
+    }
+
     proton = {
-        "particle": "proton (p⁺)",
-        "system": "membrane",
-        "charge": "+  (selectivity — self/non-self classification)",
-        "mass": "heavy (9 services, 49+ feeds, 2GB VPS)",
-        "role": "identity — atomic number defines the element. the membrane IS the proton.",
+        "particle": "proton (p⁺) — far / red",
+        "distance": "far — fully materialized, charged, selective",
+        "color": "red (hot, identity, boundary)",
+        "system": "membrane — self/non-self classification",
+        "charge": "+  (selectivity — atomic number defines the element)",
+        "mass": "heavy (17 primals, 35 crons, 10 gates)",
+        "role": "a neutrino that gained charge. the membrane IS the proton. identity.",
         "services": now.get("services", {}),
         "uptime": now.get("instant", {}).get("utc"),
     }
 
-    neutron_p = {
-        "particle": "neutron (n⁰)",
-        "system": "neutron.primals.eco — discuss / messaging",
-        "charge": "0  (no bias — anyone can speak, no account required)",
-        "mass": "heavy (discussions persist, messages have weight)",
-        "role": "stability — binds surfaces together. proton locked us out, so we built neutron.",
-        "channels": {
-            "inbox": neutron_inbox.get("total", 0),
-            "notes": neutron_notes.get("total", 0),
-        },
-        "surfaces_bound": ["hud", "sporeprint", "thesis", "detroit", "signal", "water", "neutron"],
-        "replaces": "giscus (GitHub Discussions → sovereign discuss)",
-    }
-
     classification = now.get("classification", {})
     electron = {
-        "particle": "electron (e⁻)",
-        "system": "human viewer / observer",
-        "charge": "−  (the human perspective — questions, probes, tests)",
-        "mass": "light (arrives, orbits, may leave)",
+        "particle": "electron (e⁻) — orbit / human observer",
+        "distance": "orbit — circles the nucleus, may ionize",
+        "color": "the color Kevin sees — whatever wavelength the electron emits",
+        "system": "human viewer",
+        "charge": "−  (questions, probes, tests — the complement to proton's +)",
+        "mass": "light (1/1836 of proton — arrives fast, leaves fast)",
         "energy_levels": {
             "ground_state": "visitor (just looking)",
             "first_excited": "observer (reading, dwelling)",
             "second_excited": "coder (contributing)",
-            "ionization": "sovereign (fully engaged)",
+            "ionization": "sovereign (fully engaged — Kevin)",
         },
         "current_humans": now.get("flow", {}).get("human", 0),
-        "total_entities": classification.get("total", 0),
-        "role": "bonds — electrons shared between atoms create molecules. humans connecting membranes create the mesh.",
+        "role": "a neutrino that found an orbit. bonds atoms into molecules.",
     }
 
-    neutrino = {
-        "particle": "neutrino (ν) — null",
-        "system": "squirrel + chipmunk",
-        "charge": "null (no interaction with data, pure observation)",
-        "mass": "~0 (minimal footprint — 24MB RSS)",
-        "role": "passes through everything, observes without interacting",
-        "flavors": {
-            "electron_neutrino": "squirrel observes humans",
-            "muon_neutrino": "squirrel observes fleet",
-            "tau_neutrino": "chipmunk observes presence",
+    # ═══ H₂O TRIAD — three particles form WATER ═══
+    # The waterlock IS the molecule. Two H (light) + one O (heavy) = liquid.
+    h2o = {
+        "molecule": "H₂O — the local triad",
+        "formula": "2 hydrogen (light, mobile) + 1 oxygen (heavy, anchor) = water",
+        "mapping": {
+            "H1": "electron (light, orbiting, human viewer)",
+            "H2": "neutrino (light, passing through, observer)",
+            "O":  "proton+neutron nucleus (heavy, anchored, identity+stability)",
         },
-        "oscillation": "neutrinos change flavor as they travel — squirrel shifts between observing humans, fleet, membrane",
+        "properties": {
+            "liquid": "the waterlock — OSINT pours IN, processing stays local",
+            "solid": "ice — frozen state, archived data",
+            "gas": "steam — radiated outward (RSS, pulse, WAN)",
+        },
+        "bond_angle": "104.5° — not straight, bent. the Klein twist.",
+        "polarity": "polar molecule — has a + side (proton/membrane) and − side (electron/human)",
+        "role": "the organism IS water. three particles, one liquid. LAN flows.",
     }
 
+    # ═══ He FUSION — H3 + π hammer = Helium ═══
+    # Tritium (³H) has 1 proton + 2 neutrons. Unstable. Decays.
+    # π (pi) is the force that HAMMERS fusion — the ratio that makes circles close.
+    # He (Helium-4) = 2p + 2n — the STABLE noble gas. Inert. Complete.
+    he_fusion = {
+        "reaction": "³H + π → ⁴He + energy",
+        "tritium_H3": {
+            "nucleons": 3,
+            "composition": "1 proton (membrane) + 2 neutrons (messaging×2)",
+            "half_life": "12.3 years — unstable, wants to become something",
+            "system": "the current organism — 1 identity + 2 channels, seeking fusion",
+        },
+        "pi_hammer": {
+            "value": 3.14159,
+            "role": "the force ratio — π closes circles, hammers curves into loops",
+            "system": "πHz heartbeat, π-drain, π-ratio in pulse",
+            "mechanism": "every 1/π seconds, the hammer strikes. fusion happens at the boundary.",
+        },
+        "helium_He4": {
+            "nucleons": 4,
+            "composition": "2 protons + 2 neutrons — perfectly balanced",
+            "properties": "noble gas — inert, stable, doesn't react. COMPLETE.",
+            "system": "the GOAL: organism so stable it doesn't need to react. sovereign.",
+            "boiling_point": "4.2K — coldest liquid. the opposite of fire. deep calm.",
+        },
+        "energy_released": "17.6 MeV — fusion releases more than fission. building > breaking.",
+        "interpretation": "the organism fuses its particles (grey→blue→red) through π into He — a noble state.",
+    }
+
+    # ═══ FORCES ═══
     forces = {
-        "strong": {"carrier": "gluon", "system": "Rust primals (13 crates)", "role": "holds nucleus together"},
-        "electromagnetic": {"carrier": "photon", "system": "HTTPS / feeds / TLS", "role": "all communication"},
-        "weak": {"carrier": "W/Z boson", "system": "anderson sort / epitope classification", "role": "flavor-changing"},
-        "gravity": {"carrier": "graviton?", "system": "tuebor / the investigation", "role": "infinite range, weakest force"},
+        "strong": {"carrier": "gluon", "system": "Rust primals (17 binaries)", "role": "holds nucleus together", "color_charge": "red/blue/grey triad"},
+        "electromagnetic": {"carrier": "photon", "system": "HTTPS / :8443 / :8080 / feeds", "role": "all communication — the pulse IS light"},
+        "weak": {"carrier": "W/Z boson", "system": "anderson sort / epitope / flavor-change", "role": "transforms one particle to another (neutrino↔neutron↔proton)"},
+        "gravity": {"carrier": "graviton?", "system": "tuebor / the investigation / anchors", "role": "infinite range, weakest — holds the whole organism in orbit"},
+    }
+
+    # ═══ DISTANCE UNIFICATION TABLE ═══
+    unification = {
+        "principle": "ALL particles are a neutrino at different distances",
+        "table": {
+            "null":  {"particle": "neutrino (ν)", "color": "grey", "charge": "0",  "mass": "~0",    "distance": "passes through"},
+            "near":  {"particle": "neutron (n⁰)", "color": "blue", "charge": "0",  "mass": "heavy", "distance": "stopped, gained mass"},
+            "far":   {"particle": "proton (p⁺)",  "color": "red",  "charge": "+1", "mass": "heavy", "distance": "fully materialized"},
+            "orbit": {"particle": "electron (e⁻)", "color": "seen", "charge": "-1", "mass": "light", "distance": "circling the truth"},
+        },
+        "transitions": "weak force transforms: ν↔n (beta decay), n→p+e+ν̄ (the whole atom from one neutrino)",
     }
 
     return json.dumps({
-        "atom": "the membrane IS an atom",
+        "atom": "the membrane IS an atom. every particle is a neutrino at distance.",
+        "unification": unification,
         "nucleus": {"proton": proton, "neutron": neutron_p},
         "cloud": {"electron": electron},
         "null": {"neutrino": neutrino},
+        "molecule": h2o,
+        "fusion": he_fusion,
         "forces": forces,
     }, indent=2)
 

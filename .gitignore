@@ -43,6 +43,8 @@ tarpaulin-report.json
 *.tmp
 *.bak
 *.orig
+__pycache__/
+*.pyc
 
 # LLVM coverage
 *.profraw
